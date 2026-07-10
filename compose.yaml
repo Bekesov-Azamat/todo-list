@@ -1,0 +1,80 @@
+name: ${COMPOSE_PROJECT_NAME:-todo-list}
+
+services:
+  backend:
+    image: todo-list-backend:dev
+
+    build:
+      context: .
+      dockerfile: docker/backend/Dockerfile
+      args:
+        APP_UID: ${HOST_UID:-1000}
+        APP_GID: ${HOST_GID:-1000}
+
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+
+    working_dir: /workspace
+
+    environment:
+      HOME: /home/app
+      COMPOSER_HOME: /home/app/.composer
+
+    volumes:
+      - ./:/workspace
+
+    ports:
+      - "${BACKEND_PORT:-8010}:8000"
+
+    command:
+      - sh
+      - -lc
+      - |
+        if [ -f /workspace/backend/artisan ]; then
+          cd /workspace/backend
+          exec php artisan serve --host=0.0.0.0 --port=8000
+        fi
+
+        echo "Backend skeleton has not been created yet."
+        exec tail -f /dev/null
+
+    init: true
+
+  frontend:
+    image: todo-list-frontend:dev
+
+    build:
+      context: .
+      dockerfile: docker/frontend/Dockerfile
+      args:
+        APP_UID: ${HOST_UID:-1000}
+        APP_GID: ${HOST_GID:-1000}
+
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+
+    working_dir: /workspace
+
+    environment:
+      HOME: /home/app
+      NPM_CONFIG_CACHE: /home/app/.npm
+      NPM_CONFIG_UPDATE_NOTIFIER: "false"
+      NUXT_TELEMETRY_DISABLED: "1"
+
+    volumes:
+      - ./:/workspace
+
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+
+    command:
+      - sh
+      - -lc
+      - |
+        if [ -f /workspace/frontend/package.json ]; then
+          cd /workspace/frontend
+          exec npm run dev -- --host 0.0.0.0 --port 3000
+        fi
+
+        echo "Frontend skeleton has not been created yet."
+        exec tail -f /dev/null
+
+    init: true

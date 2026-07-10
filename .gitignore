@@ -1,0 +1,38 @@
+# Root environment
+/.env
+
+# Backend environment and dependencies
+/backend/.env
+/backend/vendor/
+/backend/database/database.sqlite
+/backend/storage/logs/*.log
+
+# Frontend environment and dependencies
+/frontend/.env
+/frontend/node_modules/
+/frontend/.nuxt/
+/frontend/.output/
+/frontend/.data/
+
+# Test coverage
+/backend/coverage/
+/frontend/coverage/
+
+# IDE
+/.idea/
+/.vscode/*
+!/.vscode/extensions.json
+
+# Operating system
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary permission checks
+/.backend-permission-test
+/.frontend-permission-test
+
+# Local static-analysis override
+/backend/phpstan.neon
