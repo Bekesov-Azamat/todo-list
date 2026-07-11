@@ -60,6 +60,9 @@ export default defineNuxtPlugin((nuxtApp) => {
   const api = ofetch.create({
     baseURL: config.public.apiBase,
     credentials: 'include',
+    headers: {
+      Accept: 'application/json',
+    },
     retry: 0,
     timeout: 10_000,
 

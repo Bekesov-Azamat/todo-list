@@ -150,4 +150,16 @@ final class AuthenticationTest extends TestCase
             'Referer' => 'http://localhost:3000/',
         ];
     }
+
+    public function test_browser_api_request_receives_json_unauthorized_response(): void
+    {
+        $this
+            ->get('/api/user', [
+                'Origin' => 'http://localhost:3000',
+            ])
+            ->assertUnauthorized()
+            ->assertExactJson([
+                'message' => 'Unauthenticated.',
+            ]);
+    }
 }
