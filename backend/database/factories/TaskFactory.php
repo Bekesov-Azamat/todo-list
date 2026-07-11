@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\TaskStatus;
 use App\Models\Task;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -25,14 +26,24 @@ class TaskFactory extends Factory
             'user_id' => User::factory(),
             'title' => fake()->sentence(4),
             'description' => fake()->optional()->paragraph(),
-            'is_completed' => false,
+            'due_date' => fake()
+                ->optional()
+                ->dateTimeBetween('now', '+3 months'),
+            'status' => TaskStatus::Pending,
         ];
+    }
+
+    public function inProgress(): static
+    {
+        return $this->state(fn (): array => [
+            'status' => TaskStatus::InProgress,
+        ]);
     }
 
     public function completed(): static
     {
         return $this->state(fn (): array => [
-            'is_completed' => true,
+            'status' => TaskStatus::Completed,
         ]);
     }
 }

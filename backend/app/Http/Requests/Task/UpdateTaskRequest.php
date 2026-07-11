@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\Task;
 
+use App\Enums\TaskStatus;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
 class UpdateTaskRequest extends FormRequest
@@ -47,6 +49,7 @@ class UpdateTaskRequest extends FormRequest
                 'sometimes',
                 'required',
                 'string',
+                'min:3',
                 'max:255',
             ],
             'description' => [
@@ -55,9 +58,15 @@ class UpdateTaskRequest extends FormRequest
                 'string',
                 'max:5000',
             ],
-            'is_completed' => [
+            'due_date' => [
                 'sometimes',
-                'boolean',
+                'nullable',
+                'date_format:Y-m-d',
+            ],
+            'status' => [
+                'sometimes',
+                'required',
+                Rule::enum(TaskStatus::class),
             ],
         ];
     }
@@ -72,7 +81,8 @@ class UpdateTaskRequest extends FormRequest
                 if (! $this->hasAny([
                     'title',
                     'description',
-                    'is_completed',
+                    'due_date',
+                    'status',
                 ])) {
                     $validator->errors()->add(
                         'task',

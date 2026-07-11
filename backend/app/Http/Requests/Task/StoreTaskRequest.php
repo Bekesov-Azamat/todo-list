@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\Task;
 
+use App\Enums\TaskStatus;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreTaskRequest extends FormRequest
 {
@@ -39,6 +41,7 @@ class StoreTaskRequest extends FormRequest
             'title' => [
                 'required',
                 'string',
+                'min:3',
                 'max:255',
             ],
             'description' => [
@@ -47,9 +50,14 @@ class StoreTaskRequest extends FormRequest
                 'string',
                 'max:5000',
             ],
-            'is_completed' => [
+            'due_date' => [
                 'sometimes',
-                'boolean',
+                'nullable',
+                'date_format:Y-m-d',
+            ],
+            'status' => [
+                'required',
+                Rule::enum(TaskStatus::class),
             ],
         ];
     }

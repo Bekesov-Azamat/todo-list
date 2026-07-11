@@ -20,7 +20,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function fetchUser(): Promise<void> {
     try {
-      const response = await $api<ApiResource<AuthUser>>('/api/auth/me')
+      const response = await $api<ApiResource<AuthUser>>('/api/user')
 
       user.value = response.data
       initialized.value = true

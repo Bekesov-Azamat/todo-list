@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Models;
 
+use App\Enums\TaskStatus;
 use App\Models\Task;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -11,17 +12,26 @@ final class TaskModelTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_task_belongs_to_user_and_casts_completion_status(): void
+    public function test_task_belongs_to_user_and_casts_domain_attributes(): void
     {
         $user = User::factory()->create();
 
         $task = Task::factory()
             ->for($user)
             ->completed()
-            ->create();
+            ->create([
+                'due_date' => '2026-08-15',
+            ]);
 
         $this->assertTrue($task->user->is($user));
-        $this->assertTrue($task->is_completed);
+        $this->assertSame(
+            TaskStatus::Completed,
+            $task->status,
+        );
+        $this->assertSame(
+            '2026-08-15',
+            $task->due_date->toDateString(),
+        );
     }
 
     public function test_user_exposes_owned_tasks_relation(): void

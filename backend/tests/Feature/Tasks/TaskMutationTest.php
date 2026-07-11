@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Tasks;
 
+use App\Enums\TaskStatus;
 use App\Models\Task;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -20,29 +21,44 @@ final class TaskMutationTest extends TestCase
 
         $this
             ->postJson('/api/tasks', [
-                'title' => '  Ship Sprint 4  ',
-                'description' => '  REST API is ready.  ',
-                'is_completed' => true,
+                'title' => '  Ship Sprint 5  ',
+                'description' => '  Contract is aligned.  ',
+                'due_date' => '2026-08-20',
+                'status' => TaskStatus::InProgress->value,
                 'user_id' => $anotherUser->id,
             ])
             ->assertCreated()
-            ->assertJsonPath('data.title', 'Ship Sprint 4')
+            ->assertJsonPath('data.title', 'Ship Sprint 5')
             ->assertJsonPath(
                 'data.description',
-                'REST API is ready.',
+                'Contract is aligned.',
             )
-            ->assertJsonPath('data.is_completed', true);
+            ->assertJsonPath('data.due_date', '2026-08-20')
+            ->assertJsonPath(
+                'data.status',
+                TaskStatus::InProgress->value,
+            );
 
         $this->assertDatabaseHas('tasks', [
             'user_id' => $user->id,
-            'title' => 'Ship Sprint 4',
-            'description' => 'REST API is ready.',
-            'is_completed' => true,
+            'title' => 'Ship Sprint 5',
+            'description' => 'Contract is aligned.',
+            'status' => TaskStatus::InProgress->value,
         ]);
+
+        $task = Task::query()
+            ->where('user_id', $user->id)
+            ->where('title', 'Ship Sprint 5')
+            ->firstOrFail();
+
+        $this->assertSame(
+            '2026-08-20',
+            $task->due_date?->toDateString(),
+        );
 
         $this->assertDatabaseMissing('tasks', [
             'user_id' => $anotherUser->id,
-            'title' => 'Ship Sprint 4',
+            'title' => 'Ship Sprint 5',
         ]);
     }
 
@@ -54,13 +70,17 @@ final class TaskMutationTest extends TestCase
 
         $this
             ->postJson('/api/tasks', [
-                'title' => '   ',
+                'title' => 'ab',
                 'description' => str_repeat('a', 5001),
+                'due_date' => '20/08/2026',
+                'status' => 'done',
             ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors([
                 'title',
                 'description',
+                'due_date',
+                'status',
             ]);
 
         $this->assertDatabaseCount('tasks', 0);
@@ -75,7 +95,8 @@ final class TaskMutationTest extends TestCase
             ->create([
                 'title' => 'Initial title',
                 'description' => 'Initial description',
-                'is_completed' => false,
+                'due_date' => '2026-08-10',
+                'status' => TaskStatus::Pending,
             ]);
 
         $this->actingAs($user, 'web');
@@ -84,7 +105,8 @@ final class TaskMutationTest extends TestCase
             ->patchJson("/api/tasks/{$task->id}", [
                 'title' => '  Updated title  ',
                 'description' => null,
-                'is_completed' => true,
+                'due_date' => null,
+                'status' => TaskStatus::Completed->value,
             ])
             ->assertOk()
             ->assertJsonPath(
@@ -92,13 +114,18 @@ final class TaskMutationTest extends TestCase
                 'Updated title',
             )
             ->assertJsonPath('data.description', null)
-            ->assertJsonPath('data.is_completed', true);
+            ->assertJsonPath('data.due_date', null)
+            ->assertJsonPath(
+                'data.status',
+                TaskStatus::Completed->value,
+            );
 
         $this->assertDatabaseHas('tasks', [
             'id' => $task->id,
             'title' => 'Updated title',
             'description' => null,
-            'is_completed' => true,
+            'due_date' => null,
+            'status' => TaskStatus::Completed->value,
         ]);
     }
 

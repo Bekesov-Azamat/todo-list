@@ -63,7 +63,7 @@ final class AuthenticationTest extends TestCase
     {
         $this
             ->withHeaders($this->statefulHeaders())
-            ->getJson('/api/auth/me')
+            ->getJson('/api/user')
             ->assertUnauthorized();
     }
 
@@ -75,7 +75,7 @@ final class AuthenticationTest extends TestCase
 
         $this
             ->withHeaders($this->statefulHeaders())
-            ->getJson('/api/auth/me')
+            ->getJson('/api/user')
             ->assertOk()
             ->assertJsonPath('data.id', $user->id)
             ->assertJsonPath('data.email', $user->email);
@@ -109,7 +109,7 @@ final class AuthenticationTest extends TestCase
 
         $this
             ->withHeaders($this->statefulHeaders())
-            ->getJson('/api/auth/me')
+            ->getJson('/api/user')
             ->assertUnauthorized();
     }
 

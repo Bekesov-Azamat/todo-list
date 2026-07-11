@@ -2,6 +2,7 @@
 
 namespace App\Queries;
 
+use App\Enums\TaskStatus;
 use App\Models\Task;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
@@ -43,12 +44,11 @@ final class TaskQuery
     ): void {
         $status = $filters['status'] ?? 'all';
 
-        if ($status === 'active') {
-            $query->where('is_completed', false);
-        }
-
-        if ($status === 'completed') {
-            $query->where('is_completed', true);
+        if (
+            is_string($status)
+            && in_array($status, TaskStatus::values(), true)
+        ) {
+            $query->where('status', $status);
         }
     }
 
@@ -90,6 +90,42 @@ final class TaskQuery
         match ($sort) {
             'oldest' => $query
                 ->orderBy('created_at')
+                ->orderBy('id'),
+
+            'due_date_asc' => $query
+                ->orderByRaw(
+                    'CASE WHEN due_date IS NULL THEN 1 ELSE 0 END',
+                )
+                ->orderBy('due_date')
+                ->orderBy('id'),
+
+            'due_date_desc' => $query
+                ->orderByRaw(
+                    'CASE WHEN due_date IS NULL THEN 1 ELSE 0 END',
+                )
+                ->orderByDesc('due_date')
+                ->orderByDesc('id'),
+
+            'status_asc' => $query
+                ->orderByRaw(
+                    "CASE status
+                        WHEN 'pending' THEN 1
+                        WHEN 'in_progress' THEN 2
+                        WHEN 'completed' THEN 3
+                        ELSE 4
+                    END",
+                )
+                ->orderBy('id'),
+
+            'status_desc' => $query
+                ->orderByRaw(
+                    "CASE status
+                        WHEN 'completed' THEN 1
+                        WHEN 'in_progress' THEN 2
+                        WHEN 'pending' THEN 3
+                        ELSE 4
+                    END",
+                )
                 ->orderBy('id'),
 
             'title_asc' => $query

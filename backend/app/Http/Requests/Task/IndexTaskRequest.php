@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Task;
 
+use App\Enums\TaskStatus;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -32,8 +33,7 @@ class IndexTaskRequest extends FormRequest
                 'string',
                 Rule::in([
                     'all',
-                    'active',
-                    'completed',
+                    ...TaskStatus::values(),
                 ]),
             ],
             'search' => [
@@ -48,6 +48,10 @@ class IndexTaskRequest extends FormRequest
                 Rule::in([
                     'newest',
                     'oldest',
+                    'due_date_asc',
+                    'due_date_desc',
+                    'status_asc',
+                    'status_desc',
                     'title_asc',
                     'title_desc',
                 ]),

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Tasks;
 
+use App\Enums\TaskStatus;
 use App\Models\Task;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -71,7 +72,7 @@ final class TaskIndexTest extends TestCase
         Task::factory()
             ->for($user)
             ->create([
-                'title' => 'Prepare active report',
+                'title' => 'Prepare pending report',
             ]);
 
         Task::factory()
@@ -94,39 +95,91 @@ final class TaskIndexTest extends TestCase
                 'Prepare sprint report',
             )
             ->assertJsonPath(
-                'data.0.is_completed',
-                true,
+                'data.0.status',
+                TaskStatus::Completed->value,
             );
     }
 
-    public function test_user_can_sort_and_paginate_tasks(): void
+    public function test_user_can_sort_by_due_date_and_paginate(): void
     {
         $user = User::factory()->create();
 
         Task::factory()->for($user)->create([
-            'title' => 'Charlie',
+            'title' => 'No deadline',
+            'due_date' => null,
         ]);
 
         Task::factory()->for($user)->create([
-            'title' => 'Alpha',
+            'title' => 'Later deadline',
+            'due_date' => '2026-09-20',
         ]);
 
         Task::factory()->for($user)->create([
-            'title' => 'Bravo',
+            'title' => 'Nearest deadline',
+            'due_date' => '2026-08-10',
         ]);
 
         $this->actingAs($user, 'web');
 
         $this
             ->getJson(
-                '/api/tasks?sort=title_asc&per_page=2',
+                '/api/tasks?sort=due_date_asc&per_page=2',
             )
             ->assertOk()
             ->assertJsonCount(2, 'data')
-            ->assertJsonPath('data.0.title', 'Alpha')
-            ->assertJsonPath('data.1.title', 'Bravo')
+            ->assertJsonPath(
+                'data.0.title',
+                'Nearest deadline',
+            )
+            ->assertJsonPath(
+                'data.1.title',
+                'Later deadline',
+            )
             ->assertJsonPath('meta.current_page', 1)
             ->assertJsonPath('meta.per_page', 2)
             ->assertJsonPath('meta.total', 3);
+    }
+
+    public function test_user_can_sort_tasks_by_domain_status(): void
+    {
+        $user = User::factory()->create();
+
+        Task::factory()
+            ->for($user)
+            ->completed()
+            ->create([
+                'title' => 'Completed task',
+            ]);
+
+        Task::factory()
+            ->for($user)
+            ->create([
+                'title' => 'Pending task',
+            ]);
+
+        Task::factory()
+            ->for($user)
+            ->inProgress()
+            ->create([
+                'title' => 'In progress task',
+            ]);
+
+        $this->actingAs($user, 'web');
+
+        $this
+            ->getJson('/api/tasks?sort=status_asc')
+            ->assertOk()
+            ->assertJsonPath(
+                'data.0.status',
+                TaskStatus::Pending->value,
+            )
+            ->assertJsonPath(
+                'data.1.status',
+                TaskStatus::InProgress->value,
+            )
+            ->assertJsonPath(
+                'data.2.status',
+                TaskStatus::Completed->value,
+            );
     }
 }

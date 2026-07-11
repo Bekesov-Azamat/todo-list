@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Tasks;
 
+use App\Enums\TaskStatus;
 use App\Models\Task;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -42,7 +43,7 @@ final class TaskAuthorizationTest extends TestCase
             ->for($owner)
             ->create([
                 'title' => 'Owner task',
-                'is_completed' => false,
+                'status' => TaskStatus::Pending,
             ]);
 
         $this->actingAs($anotherUser, 'web');
@@ -53,7 +54,7 @@ final class TaskAuthorizationTest extends TestCase
 
         $this
             ->patchJson("/api/tasks/{$task->id}", [
-                'is_completed' => true,
+                'status' => TaskStatus::Completed->value,
             ])
             ->assertForbidden();
 
@@ -64,7 +65,7 @@ final class TaskAuthorizationTest extends TestCase
         $this->assertDatabaseHas('tasks', [
             'id' => $task->id,
             'title' => 'Owner task',
-            'is_completed' => false,
+            'status' => TaskStatus::Pending->value,
         ]);
     }
 }

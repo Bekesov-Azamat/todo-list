@@ -14,16 +14,14 @@ Route::prefix('auth')
         Route::post('/login', [AuthController::class, 'login'])
             ->middleware('throttle:login')
             ->name('login');
-
-        Route::middleware('auth:sanctum')->group(function (): void {
-            Route::get('/me', [AuthController::class, 'me'])
-                ->name('me');
-
-            Route::post('/logout', [AuthController::class, 'logout'])
-                ->name('logout');
-        });
     });
 
 Route::middleware('auth:sanctum')->group(function (): void {
+    Route::get('/user', [AuthController::class, 'me'])
+        ->name('user.show');
+
+    Route::post('/auth/logout', [AuthController::class, 'logout'])
+        ->name('auth.logout');
+
     Route::apiResource('tasks', TaskController::class);
 });
