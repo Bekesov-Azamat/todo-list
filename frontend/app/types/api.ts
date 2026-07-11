@@ -22,6 +22,51 @@ export interface RegisterPayload {
   password_confirmation: string
 }
 
+export type TaskStatus
+  = | 'pending'
+    | 'in_progress'
+    | 'completed'
+
+export interface Task {
+  id: number
+  title: string
+  description: string | null
+  due_date: string | null
+  status: TaskStatus
+  created_at: string | null
+  updated_at: string | null
+}
+
+export interface TaskFormPayload {
+  title: string
+  description: string | null
+  due_date: string | null
+  status: TaskStatus
+}
+
+export interface PaginationLinks {
+  first: string | null
+  last: string | null
+  prev: string | null
+  next: string | null
+}
+
+export interface PaginationMeta {
+  current_page: number
+  from: number | null
+  last_page: number
+  path: string
+  per_page: number
+  to: number | null
+  total: number
+}
+
+export interface PaginatedResponse<T> {
+  data: T[]
+  links: PaginationLinks
+  meta: PaginationMeta
+}
+
 export interface ValidationErrorResponse {
   message: string
   errors?: Record<string, string[]>
