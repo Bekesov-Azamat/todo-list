@@ -83,10 +83,16 @@ export const useAuthStore = defineStore('auth', () => {
     initialized.value = true
   }
 
+  function clearSession(): void {
+    user.value = null
+    initialized.value = true
+  }
+
   return {
     user,
     initialized,
     isAuthenticated,
+    clearSession,
     initialize,
     login,
     register,

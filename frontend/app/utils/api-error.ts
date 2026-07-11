@@ -18,3 +18,29 @@ export function getApiErrorMessage(
   return (error as FetchError<ValidationErrorResponse>).data?.message
     ?? fallback
 }
+
+export function getApiStatus(
+  error: unknown,
+): number | undefined {
+  if (
+    typeof error !== 'object'
+    || error === null
+    || !('response' in error)
+  ) {
+    return undefined
+  }
+
+  const response = error.response
+
+  if (
+    typeof response !== 'object'
+    || response === null
+    || !('status' in response)
+  ) {
+    return undefined
+  }
+
+  return typeof response.status === 'number'
+    ? response.status
+    : undefined
+}

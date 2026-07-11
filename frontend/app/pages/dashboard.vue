@@ -1,16 +1,29 @@
 <script setup lang="ts">
 import TaskCard from '~/components/tasks/TaskCard.vue'
+import TaskFilters from '~/components/tasks/TaskFilters.vue'
 import TaskForm from '~/components/tasks/TaskForm.vue'
+import TaskPagination from '~/components/tasks/TaskPagination.vue'
 import type {
   ApiResource,
   PaginatedResponse,
+  PaginationMeta,
   Task,
+  TaskFilterStatus,
   TaskFormPayload,
+  TaskSort,
 } from '~/types/api'
 import {
   getApiErrorMessage,
+  getApiStatus,
   getValidationErrors,
 } from '~/utils/api-error'
+
+interface TaskQueryOverrides {
+  search?: string
+  status?: TaskFilterStatus
+  sort?: TaskSort
+  page?: number
+}
 
 definePageMeta({
   middleware: 'auth',
@@ -21,11 +34,46 @@ useHead({
 })
 
 const auth = useAuthStore()
+const route = useRoute()
+const router = useRouter()
 const { $api } = useNuxtApp()
+
+const validStatuses = new Set<TaskFilterStatus>([
+  'all',
+  'pending',
+  'in_progress',
+  'completed',
+])
+
+const validSorts = new Set<TaskSort>([
+  'newest',
+  'oldest',
+  'due_date_asc',
+  'due_date_desc',
+  'status_asc',
+  'status_desc',
+  'title_asc',
+  'title_desc',
+])
 
 const tasks = ref<Task[]>([])
 const loading = ref(true)
 const pageError = ref('')
+
+const searchInput = ref('')
+const status = ref<TaskFilterStatus>('all')
+const sort = ref<TaskSort>('newest')
+const currentPage = ref(1)
+
+const pagination = ref<PaginationMeta>({
+  current_page: 1,
+  from: null,
+  last_page: 1,
+  path: '/api/tasks',
+  per_page: 6,
+  to: null,
+  total: 0,
+})
 
 const formOpen = ref(false)
 const editingTask = ref<Task | null>(null)
@@ -36,43 +84,234 @@ const formErrorMessage = ref('')
 const deletingTaskId = ref<number | null>(null)
 const loggingOut = ref(false)
 
+let searchTimer: ReturnType<typeof setTimeout> | null = null
+let latestRequestId = 0
+
+const hasActiveFilters = computed(() => {
+  return searchInput.value.trim() !== ''
+    || status.value !== 'all'
+    || sort.value !== 'newest'
+})
+
 const taskCountLabel = computed(() => {
-  const count = tasks.value.length
+  const count = pagination.value.total
 
   return count === 1
     ? '1 task'
     : `${count} tasks`
 })
 
+const taskRangeLabel = computed(() => {
+  if (
+    pagination.value.total === 0
+    || pagination.value.from === null
+    || pagination.value.to === null
+  ) {
+    return taskCountLabel.value
+  }
+
+  return `${pagination.value.from}–${pagination.value.to}`
+    + ` of ${pagination.value.total}`
+})
+
+function queryString(value: unknown): string {
+  if (Array.isArray(value)) {
+    return queryString(value[0])
+  }
+
+  return typeof value === 'string'
+    ? value
+    : ''
+}
+
+function queryPage(value: unknown): number {
+  const parsed = Number.parseInt(
+    queryString(value),
+    10,
+  )
+
+  return Number.isInteger(parsed) && parsed > 0
+    ? parsed
+    : 1
+}
+
+function queryStatus(value: unknown): TaskFilterStatus {
+  const parsed = queryString(value) as TaskFilterStatus
+
+  return validStatuses.has(parsed)
+    ? parsed
+    : 'all'
+}
+
+function querySort(value: unknown): TaskSort {
+  const parsed = queryString(value) as TaskSort
+
+  return validSorts.has(parsed)
+    ? parsed
+    : 'newest'
+}
+
+function buildRouteQuery(
+  overrides: TaskQueryOverrides = {},
+): Record<string, string> {
+  const nextSearch = (
+    overrides.search ?? searchInput.value
+  ).trim()
+
+  const nextStatus = overrides.status ?? status.value
+  const nextSort = overrides.sort ?? sort.value
+  const nextPage = overrides.page ?? currentPage.value
+
+  const query: Record<string, string> = {}
+
+  if (nextSearch !== '') {
+    query.search = nextSearch
+  }
+
+  if (nextStatus !== 'all') {
+    query.status = nextStatus
+  }
+
+  if (nextSort !== 'newest') {
+    query.sort = nextSort
+  }
+
+  if (nextPage > 1) {
+    query.page = String(nextPage)
+  }
+
+  return query
+}
+
+async function updateRoute(
+  overrides: TaskQueryOverrides = {},
+): Promise<void> {
+  await router.replace({
+    query: buildRouteQuery(overrides),
+  })
+}
+
 async function csrf(): Promise<void> {
   await $api('/sanctum/csrf-cookie')
 }
 
 async function fetchTasks(): Promise<void> {
+  const requestId = ++latestRequestId
+
   loading.value = true
   pageError.value = ''
+
+  const query: Record<string, string | number> = {
+    page: currentPage.value,
+    per_page: 6,
+    status: status.value,
+    sort: sort.value,
+  }
+
+  const search = searchInput.value.trim()
+
+  if (search !== '') {
+    query.search = search
+  }
 
   try {
     const response = await $api<
       PaginatedResponse<Task>
     >('/api/tasks', {
-      query: {
-        per_page: 50,
-        sort: 'newest',
-      },
+      query,
     })
 
+    if (requestId !== latestRequestId) {
+      return
+    }
+
+    if (
+      response.meta.current_page
+      > response.meta.last_page
+    ) {
+      await updateRoute({
+        page: response.meta.last_page,
+      })
+
+      return
+    }
+
     tasks.value = response.data
+    pagination.value = response.meta
   }
   catch (error: unknown) {
+    if (
+      requestId !== latestRequestId
+      || getApiStatus(error) === 401
+    ) {
+      return
+    }
+
     pageError.value = getApiErrorMessage(
       error,
       'Unable to load your tasks. Please try again.',
     )
   }
   finally {
-    loading.value = false
+    if (requestId === latestRequestId) {
+      loading.value = false
+    }
   }
+}
+
+function updateSearch(value: string): void {
+  searchInput.value = value
+
+  if (searchTimer !== null) {
+    clearTimeout(searchTimer)
+  }
+
+  searchTimer = setTimeout(() => {
+    void updateRoute({
+      search: value,
+      page: 1,
+    })
+  }, 400)
+}
+
+function updateStatus(value: TaskFilterStatus): void {
+  status.value = value
+
+  void updateRoute({
+    status: value,
+    page: 1,
+  })
+}
+
+function updateSort(value: TaskSort): void {
+  sort.value = value
+
+  void updateRoute({
+    sort: value,
+    page: 1,
+  })
+}
+
+function resetFilters(): void {
+  if (searchTimer !== null) {
+    clearTimeout(searchTimer)
+    searchTimer = null
+  }
+
+  searchInput.value = ''
+  status.value = 'all'
+  sort.value = 'newest'
+  currentPage.value = 1
+
+  void router.replace({
+    query: {},
+  })
+}
+
+function changePage(page: number): void {
+  void updateRoute({
+    page,
+  })
 }
 
 function openCreateForm(): void {
@@ -111,41 +350,50 @@ async function saveTask(
   formErrorMessage.value = ''
   submitting.value = true
 
+  const creatingTask = editingTask.value === null
+
   try {
     await csrf()
 
     const currentTask = editingTask.value
 
-    const response = currentTask
-      ? await $api<ApiResource<Task>>(
-          `/api/tasks/${currentTask.id}`,
-          {
-            method: 'PATCH',
-            body: payload,
-          },
-        )
-      : await $api<ApiResource<Task>>('/api/tasks', {
-          method: 'POST',
-          body: payload,
-        })
-
     if (currentTask) {
-      const index = tasks.value.findIndex(
-        task => task.id === response.data.id,
+      await $api<ApiResource<Task>>(
+        `/api/tasks/${currentTask.id}`,
+        {
+          method: 'PATCH',
+          body: payload,
+        },
       )
-
-      if (index !== -1) {
-        tasks.value[index] = response.data
-      }
     }
     else {
-      tasks.value.unshift(response.data)
+      await $api<ApiResource<Task>>('/api/tasks', {
+        method: 'POST',
+        body: payload,
+      })
     }
 
     resetForm()
+
+    if (
+      creatingTask
+      && currentPage.value !== 1
+    ) {
+      await updateRoute({
+        page: 1,
+      })
+    }
+    else {
+      await fetchTasks()
+    }
   }
   catch (error: unknown) {
+    if (getApiStatus(error) === 401) {
+      return
+    }
+
     formErrors.value = getValidationErrors(error)
+
     formErrorMessage.value = getApiErrorMessage(
       error,
       'Unable to save the task. Please try again.',
@@ -175,11 +423,23 @@ async function deleteTask(task: Task): Promise<void> {
       method: 'DELETE',
     })
 
-    tasks.value = tasks.value.filter(
-      currentTask => currentTask.id !== task.id,
-    )
+    if (
+      tasks.value.length === 1
+      && currentPage.value > 1
+    ) {
+      await updateRoute({
+        page: currentPage.value - 1,
+      })
+    }
+    else {
+      await fetchTasks()
+    }
   }
   catch (error: unknown) {
+    if (getApiStatus(error) === 401) {
+      return
+    }
+
     pageError.value = getApiErrorMessage(
       error,
       'Unable to delete the task. Please try again.',
@@ -199,6 +459,10 @@ async function logout(): Promise<void> {
     await navigateTo('/login')
   }
   catch (error: unknown) {
+    if (getApiStatus(error) === 401) {
+      return
+    }
+
     pageError.value = getApiErrorMessage(
       error,
       'Unable to sign out. Please try again.',
@@ -209,8 +473,27 @@ async function logout(): Promise<void> {
   }
 }
 
-onMounted(() => {
-  void fetchTasks()
+watch(
+  () => route.query,
+  (query) => {
+    searchInput.value = queryString(query.search)
+    status.value = queryStatus(query.status)
+    sort.value = querySort(query.sort)
+    currentPage.value = queryPage(query.page)
+
+    void fetchTasks()
+  },
+  {
+    immediate: true,
+  },
+)
+
+onBeforeUnmount(() => {
+  latestRequestId++
+
+  if (searchTimer !== null) {
+    clearTimeout(searchTimer)
+  }
 })
 </script>
 
@@ -263,6 +546,17 @@ onMounted(() => {
         </button>
       </div>
 
+      <TaskFilters
+        :search="searchInput"
+        :status="status"
+        :sort="sort"
+        :loading="loading"
+        @update:search="updateSearch"
+        @update:status="updateStatus"
+        @update:sort="updateSort"
+        @reset="resetFilters"
+      />
+
       <p
         v-if="pageError"
         class="alert alert--error dashboard-alert"
@@ -282,7 +576,7 @@ onMounted(() => {
 
       <div class="task-list-heading">
         <h2>Task list</h2>
-        <span>{{ taskCountLabel }}</span>
+        <span>{{ taskRangeLabel }}</span>
       </div>
 
       <div
@@ -292,7 +586,7 @@ onMounted(() => {
         aria-busy="true"
       >
         <div
-          v-for="index in 3"
+          v-for="index in 6"
           :key="index"
           class="task-skeleton"
         >
@@ -310,14 +604,33 @@ onMounted(() => {
           ✓
         </div>
 
-        <h2>No tasks yet</h2>
+        <h2>
+          {{
+            hasActiveFilters
+              ? 'No matching tasks'
+              : 'No tasks yet'
+          }}
+        </h2>
 
         <p>
-          Create your first task and start building a clear
-          workspace.
+          {{
+            hasActiveFilters
+              ? 'Try changing or clearing the current filters.'
+              : 'Create your first task and start building a clear workspace.'
+          }}
         </p>
 
         <button
+          v-if="hasActiveFilters"
+          class="button button--secondary"
+          type="button"
+          @click="resetFilters"
+        >
+          Clear filters
+        </button>
+
+        <button
+          v-else
           class="button button--primary"
           type="button"
           @click="openCreateForm"
@@ -339,6 +652,12 @@ onMounted(() => {
           @remove="deleteTask"
         />
       </div>
+
+      <TaskPagination
+        :meta="pagination"
+        :loading="loading"
+        @change="changePage"
+      />
     </section>
 
     <div

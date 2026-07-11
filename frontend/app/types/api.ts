@@ -27,6 +27,18 @@ export type TaskStatus
     | 'in_progress'
     | 'completed'
 
+export type TaskFilterStatus = 'all' | TaskStatus
+
+export type TaskSort
+  = | 'newest'
+    | 'oldest'
+    | 'due_date_asc'
+    | 'due_date_desc'
+    | 'status_asc'
+    | 'status_desc'
+    | 'title_asc'
+    | 'title_desc'
+
 export interface Task {
   id: number
   title: string
