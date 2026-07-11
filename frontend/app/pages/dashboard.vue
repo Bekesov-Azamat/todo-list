@@ -34,6 +34,10 @@ useHead({
 })
 
 const auth = useAuthStore()
+const isAdmin = computed(
+  () => auth.user?.role === 'admin',
+)
+
 const route = useRoute()
 const router = useRouter()
 const { $api } = useNuxtApp()
@@ -510,6 +514,13 @@ onBeforeUnmount(() => {
       <div class="dashboard-header__actions">
         <span class="dashboard-user">
           {{ auth.user?.name }}
+
+          <span
+            v-if="isAdmin"
+            class="dashboard-role-badge"
+          >
+            Admin
+          </span>
         </span>
 
         <button
@@ -527,13 +538,23 @@ onBeforeUnmount(() => {
       <div class="dashboard-toolbar">
         <div>
           <p class="eyebrow">
-            Private workspace
+            {{
+              isAdmin
+                ? 'Administrator workspace'
+                : 'Private workspace'
+            }}
           </p>
 
-          <h1>Your tasks</h1>
+          <h1>
+            {{ isAdmin ? 'All tasks' : 'Your tasks' }}
+          </h1>
 
           <p>
-            Keep work visible, focused and under control.
+            {{
+              isAdmin
+                ? 'Review and manage tasks across all users.'
+                : 'Keep work visible, focused and under control.'
+            }}
           </p>
         </div>
 
@@ -648,6 +669,7 @@ onBeforeUnmount(() => {
           :key="task.id"
           :task="task"
           :deleting="deletingTaskId === task.id"
+          :show-owner="isAdmin"
           @edit="openEditForm"
           @remove="deleteTask"
         />

@@ -63,6 +63,14 @@ describe('Task components', () => {
       description: 'Check the dashboard manually.',
       due_date: '2026-08-25',
       status: 'pending',
+      owner: {
+        id: 7,
+        name: 'Demo User',
+      },
+      permissions: {
+        update: true,
+        delete: true,
+      },
       created_at: '2026-07-11T00:00:00.000000Z',
       updated_at: '2026-07-11T00:00:00.000000Z',
     }
@@ -92,6 +100,42 @@ describe('Task components', () => {
 
     expect(wrapper.emitted('remove')?.[0]?.[0])
       .toEqual(task)
+  })
+
+  it('renders owner and hides forbidden task actions', async () => {
+    const task: Task = {
+      id: 21,
+      title: 'Read-only task',
+      description: null,
+      due_date: null,
+      status: 'completed',
+      owner: {
+        id: 9,
+        name: 'Another User',
+      },
+      permissions: {
+        update: false,
+        delete: false,
+      },
+      created_at: '2026-07-11T00:00:00.000000Z',
+      updated_at: '2026-07-11T00:00:00.000000Z',
+    }
+
+    const wrapper = await mountSuspended(TaskCard, {
+      props: {
+        task,
+        showOwner: true,
+      },
+    })
+
+    expect(wrapper.get('[data-testid="task-owner"]').text())
+      .toBe('Owner: Another User')
+
+    expect(wrapper.find('[data-testid="edit-task"]').exists())
+      .toBe(false)
+
+    expect(wrapper.find('[data-testid="delete-task"]').exists())
+      .toBe(false)
   })
 
   it('emits search, status, sort and reset changes', async () => {

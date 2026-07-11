@@ -18,7 +18,11 @@ final class TaskQuery
         User $user,
         array $filters,
     ): LengthAwarePaginator {
-        $query = $user->tasks()->getQuery();
+        $query = $user->isAdmin()
+            ? Task::query()
+            : $user->tasks()->getQuery();
+
+        $query->with('user');
 
         $this->applyStatus($query, $filters);
         $this->applySearch($query, $filters);

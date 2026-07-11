@@ -2,10 +2,13 @@ export interface ApiResource<T> {
   data: T
 }
 
+export type UserRole = 'admin' | 'user'
+
 export interface AuthUser {
   id: number
   name: string
   email: string
+  role: UserRole
   created_at: string | null
 }
 
@@ -39,12 +42,24 @@ export type TaskSort
     | 'title_asc'
     | 'title_desc'
 
+export interface TaskOwner {
+  id: number
+  name: string
+}
+
+export interface TaskPermissions {
+  update: boolean
+  delete: boolean
+}
+
 export interface Task {
   id: number
   title: string
   description: string | null
   due_date: string | null
   status: TaskStatus
+  owner: TaskOwner
+  permissions: TaskPermissions
   created_at: string | null
   updated_at: string | null
 }

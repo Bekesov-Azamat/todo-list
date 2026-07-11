@@ -7,8 +7,10 @@ import type {
 const props = withDefaults(defineProps<{
   task: Task
   deleting?: boolean
+  showOwner?: boolean
 }>(), {
   deleting: false,
+  showOwner: false,
 })
 
 const emit = defineEmits<{
@@ -73,6 +75,14 @@ const formattedDueDate = computed(() => {
     </div>
 
     <div class="task-card__body">
+      <p
+        v-if="showOwner"
+        class="task-card__owner"
+        data-testid="task-owner"
+      >
+        Owner: {{ task.owner.name }}
+      </p>
+
       <h2>{{ task.title }}</h2>
 
       <p
@@ -84,14 +94,18 @@ const formattedDueDate = computed(() => {
 
       <p
         v-else
-        class="task-card__description task-card__description--empty"
+        class="task-card_description task-card_description--empty"
       >
         No description
       </p>
     </div>
 
-    <div class="task-card__actions">
+    <div
+      v-if="task.permissions.update || task.permissions.delete"
+      class="task-card__actions"
+    >
       <button
+        v-if="task.permissions.update"
         class="button button--secondary button--small"
         data-testid="edit-task"
         type="button"
@@ -102,6 +116,7 @@ const formattedDueDate = computed(() => {
       </button>
 
       <button
+        v-if="task.permissions.delete"
         class="button button--danger button--small"
         data-testid="delete-task"
         type="button"
